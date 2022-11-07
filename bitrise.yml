@@ -1,0 +1,112 @@
+---
+format_version: '11'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: react-native
+workflows:
+  deploy:
+    description: |
+      Tests, builds and deploys the app using *Deploy to bitrise.io* Step.
+
+      Next steps:
+      - Set up an [Apple service with API key](https://devcenter.bitrise.io/en/accounts/connecting-to-services/connecting-to-an-apple-service-with-api-key.html).
+      - Check out [Getting started with React Native apps](https://devcenter.bitrise.io/en/getting-started/getting-started-with-react-native-apps.html).
+    steps:
+    - activate-ssh-key@4: {}
+    - git-clone@6: {}
+    - yarn@0:
+        inputs:
+        - workdir: "$WORKDIR"
+        - command: install
+    - yarn@0:
+        inputs:
+        - workdir: "$WORKDIR"
+        - command: test
+    - install-react-native@0: {}
+    - react-native-bundle@1:
+        inputs:
+        - binary_path: "./node_modules/.bin"
+        - out: android/app/src/main/assets/index.android.bundle
+        - assetRoots: android/app/src/main/res/
+        - entry_file: index.js
+        - platform: android
+    - install-missing-android-tools@3:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - android-build@1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - deploy-to-bitrise-io@2: {}
+    - aws-device-farm-file-deploy@0:
+        inputs:
+        - upload_type: APPIUM_NODE_TEST_PACKAGE
+        - device_farm_project: "$AMAZON_DEVICE_FARM_PROJECT_ARN"
+        - aws_region: us-west-2
+        - upload_file_path: "$BITRISE_APK_PATH"
+    - aws-device-farm-runner@0:
+        inputs:
+        - secret_access_key: "$AWS_SECRET_KEY"
+        - device_farm_project: "$AMAZON_DEVICE_FARM_PROJECT_ARN"
+        - test_package_name: app-debug.apk
+        - test_type: BUILTIN_FUZZ
+        - platform: android
+        - apk_path: "$BITRISE_APK_PATH"
+        - aws_region: "$AWS_REGION"
+        - android_pool: "$AMAZON_DEVICE_FARM_ANDROID_DEVICE_POOL_ARN"
+        - access_key_id: "$AWS_ACCESS_KEY"
+    envs:
+    - opts:
+        is_expand: false
+      AMAZON_DEVICE_FARM_PROJECT_ARN: arn:aws:devicefarm:us-west-2:example:project:example
+    - opts:
+        is_expand: false
+      AMAZON_DEVICE_FARM_ANDROID_DEVICE_POOL_ARN: arn:aws:devicefarm:us-west-2::devicepool:example
+    - opts:
+        is_expand: false
+      AWS_REGION: us-west-2
+  primary:
+    description: |
+      Runs tests.
+
+      Next steps:
+      - Check out [Getting started with React Native apps](https://devcenter.bitrise.io/en/getting-started/getting-started-with-react-native-apps.html).
+    steps:
+    - activate-ssh-key@4: {}
+    - git-clone@6: {}
+    - yarn@0:
+        inputs:
+        - workdir: "$WORKDIR"
+        - command: install
+    - yarn@0:
+        inputs:
+        - workdir: "$WORKDIR"
+        - command: test
+    - deploy-to-bitrise-io@2: {}
+meta:
+  bitrise.io:
+    stack: linux-docker-android-20.04
+    machine_type_id: standard
+app:
+  envs:
+  - opts:
+      is_expand: false
+    WORKDIR: "."
+  - opts:
+      is_expand: false
+    PROJECT_LOCATION: android
+  - opts:
+      is_expand: false
+    MODULE: app
+  - opts:
+      is_expand: false
+    VARIANT: debug
+  - opts:
+      is_expand: false
+    BITRISE_PROJECT_PATH: ios/AwesomeProject.xcworkspace
+  - opts:
+      is_expand: false
+    BITRISE_SCHEME: AwesomeProject
+  - opts:
+      is_expand: false
+    BITRISE_DISTRIBUTION_METHOD: development
